@@ -2,6 +2,7 @@
 #include "import-svg.h"
 
 #include <cstdio>
+#include <string>
 #include <tinyxml2.h>
 
 #ifdef _WIN32
@@ -151,22 +152,41 @@ static bool buildFromPath(Shape &shape, const char *pathDef) {
     return true;
 }
 
+tinyxml2::XMLElement * FindFirstXMLElement(tinyxml2::XMLElement *elem, const std::string &name) {
+    if (!elem) {
+        return nullptr;
+    }
+    if (elem->Name() && !std::string(elem->Name()).compare("path")) {
+        return elem;
+    } else {
+        if (elem->NoChildren()) {
+            if (elem->NextSiblingElement()) {
+                return FindFirstXMLElement(elem->NextSiblingElement(), name);
+            } else {
+                return nullptr;
+            }
+        } else {
+            return FindFirstXMLElement(elem->FirstChildElement(), name);
+        }
+    }
+}
+
 bool loadSvgShape(Shape &output, const char *filename, Vector2 *dimensions) {
     tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(filename))
+    if (doc.LoadFile(filename)) {
         return false;
-    tinyxml2::XMLElement *root = doc.FirstChildElement("svg");
-    if (!root)
-        return false;
-
-    tinyxml2::XMLElement *path = root->FirstChildElement("path");
-    if (!path) {
-        tinyxml2::XMLElement *g = root->FirstChildElement("g");
-        if (g)
-            path = g->FirstChildElement("path");
     }
-    if (!path)
+        
+    tinyxml2::XMLElement *root = doc.RootElement();
+    if (!root) {
         return false;
+    }
+
+    tinyxml2::XMLElement *path = FindFirstXMLElement(root, "path");
+    if (!path) {
+        return false;
+    }
+
     const char *pd = path->Attribute("d");
     if (!pd)
         return false;
